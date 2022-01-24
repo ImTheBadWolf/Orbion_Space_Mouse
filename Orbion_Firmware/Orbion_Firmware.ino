@@ -39,8 +39,10 @@ unsigned long tim, h, tim1, h1, tim2, h2, scrollTimeOld;
 long scroll;
 /////////////// Rear Button  ///////////////
 
-int butFun = 8;   // Pin rear button                      <------------
+int butFun = A5;  // Pin rear button                      <------------
 int butFunBef = 0;
+int butFun2 = 8; //side button
+int butFunBef2 = 0;
 char arButt [36] = {'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'z', 'x', 'c', 'v', 'b', 'n', 'm', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'};
 char cb;
 
@@ -71,6 +73,7 @@ void setup()
   pinMode(vertPin, INPUT_PULLUP);
   pinMode(encBut, INPUT_PULLUP);
   pinMode(butFun, INPUT_PULLUP);
+  pinMode(butFun2, INPUT_PULLUP);
   pinMode(joyButt, INPUT_PULLUP);
 
   YZero = analogRead(vertPin);
@@ -107,18 +110,10 @@ void loop()
   if (scroll != oldScroll) {
     if (scroll < oldScroll)
     {
-      if (EEPROM.read(10) == 4)
-      {
-        Keyboard.press(KEY_LEFT_ALT);
-      }
       Mouse.move(0, 0, 1);
     }
     else
     {
-      if (EEPROM.read(10) == 4)
-      {
-        Keyboard.press(KEY_LEFT_ALT);
-      }
       Mouse.move(0, 0, -1);
     }
     oldScroll = scroll;
@@ -141,6 +136,33 @@ void loop()
   else if (digitalRead(butFun) && (butFunBef))
   {
     butFunBef = 0;
+    tim2 = millis() - h2;
+    if (tim2 > 50)
+    {
+      h2 = millis();
+      Mouse.release(MOUSE_MIDDLE);
+      Keyboard.releaseAll();
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////// SIDE BUTTON ///////////////////////////////
+  
+  if ((digitalRead(butFun2) == 0) && (butFunBef2 == 0))
+  {
+    butFunBef2 = 1;
+    if (EEPROM.read(40) <= 35)
+    {
+      Keyboard.press(arButt [EEPROM.read(40)]);
+    }
+    if (EEPROM.read(40) >= 36)
+    {
+      epr = 40;
+      selButt(&epr);
+    }
+  }
+  else if (digitalRead(butFun2) && (butFunBef2))
+  {
+    butFunBef2 = 0;
     tim2 = millis() - h2;
     if (tim2 > 50)
     {
@@ -239,7 +261,7 @@ void loop()
     Mouse.release(MOUSE_RIGHT);
     do
     {
-      rotaryMenu(&sel, 0, 4, 1, 150, 3);
+      rotaryMenu(&sel, 0, 5, 1, 150, 3);
       menu(&sel, &exi, &first);
     }
     while (exi == LOW);
@@ -281,7 +303,7 @@ void rotaryMenu(int* s, int minV, int maxV, int increment, int wait, int error)
 }
 
 void menu(int* s, int* e, int* f)
-{
+{//TODO refactor, one switch, s!=oldSel in the switch case
   if (*s != oldSel) {
     stripR.fill(stripR.Color(0, 0, 0), 0 , 3);
     stripL.fill(stripL.Color(0, 0, 0), 0 , 3);
@@ -323,10 +345,20 @@ void menu(int* s, int* e, int* f)
           disp.drawStr(0, 55, "<");
           disp.drawStr(107, 55, ">");
         } while (disp.nextPage());
+        stripR.setPixelColor(1, menuColor);
+        break;
+        
+      case 4:
+        disp.firstPage();
+        do {
+          disp.drawStr(17, 28, "Side Push");
+          disp.drawStr(0, 55, "<");
+          disp.drawStr(107, 55, ">");
+        } while (disp.nextPage());
         stripR.setPixelColor(2, menuColor);
         break;
 
-      case 4:
+      case 5:
         disp.firstPage();
         do {
           disp.drawStr(42, 28, "Exit");
@@ -380,6 +412,15 @@ void menu(int* s, int* e, int* f)
         break;
 
       case 4:
+        oldT = 999;
+        epr = 40;
+        buttMode(&epr);
+        *s = 4;
+        oldSel = 999;
+        delay(200);
+        break;
+
+      case 5:
         *e = HIGH;
         break;
       default:
@@ -530,12 +571,14 @@ void buttMode(int *e)
         if (t == 42)
           disp.drawStr(48, 45, "Del");
         if (t == 43)
+          disp.drawStr(40, 45, "Enter");
+        if (t == 44)
           disp.drawStr(18, 45, "Scroll btn");
       } while (disp.nextPage());
       oldT = t;
     }
 
-    rotaryMenu(&t, 0, 43, 1, 10, 1);
+    rotaryMenu(&t, 0, 44, 1, 10, 3);
     if (digitalRead(butFun) == LOW)
     {
       ex = HIGH;
@@ -579,6 +622,10 @@ void selButt(int *e)
       break;
 
     case 43:
+      Keyboard.press(KEY_RETURN);
+      break;
+      
+    case 44:
       Mouse.press(MOUSE_MIDDLE);
       break;
   }
